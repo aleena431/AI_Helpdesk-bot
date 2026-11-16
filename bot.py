@@ -1,16 +1,25 @@
-"""A small IT helpdesk assistant with a local FAQ mode."""
+"""Interactive IT helpdesk assistant using the local FAQ as the source of truth."""
 
 import json
 import os
 import re
+import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
-from groq import Groq
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - optional dependency
+    def load_dotenv() -> bool:
+        return False
+
+try:
+    from groq import Groq
+except ImportError:  # pragma: no cover - optional dependency
+    Groq = None
 
 load_dotenv()
 
-SYSTEM_PROMPT = """You are Alina Khalid, an IT Helpdesk Assistant.
+SYSTEM_PROMPT = """You are Alish, an IT Helpdesk Assistant.
 Help employees with VPN access, password resets, and software setup.
 Use the supplied approved FAQ as your source for support procedures. Keep the
 reply concise and do not add steps that are absent from the FAQ. If no FAQ is
@@ -31,67 +40,164 @@ STOP_WORDS = {
 }
 
 
+def normalize_text(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
 def useful_words(text: str) -> set[str]:
     return {
         word
-        for word in re.findall(r"[a-z0-9]+", text.lower())
-        if word not in STOP_WORDS
+        for word in normalize_text(text).split()
+        if word and word not in STOP_WORDS
     }
 
 
-def find_local_faq(question: str) -> dict | None:
+def load_faqs() -> list[dict]:
     faq_path = Path(__file__).with_name("faqs.json")
-    with faq_path.open(encoding="utf-8") as faq_file:
-        faqs = json.load(faq_file)
+    if not faq_path.exists():
+        return []
 
-    question_words = useful_words(question)
+    try:
+        with faq_path.open("r", encoding="utf-8") as faq_file:
+            items = json.load(faq_file)
+    except (OSError, json.JSONDecodeError, TypeError):
+        return []
+
+    if not isinstance(items, list):
+        return []
+
+    valid_items: list[dict] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        question = str(item.get("question", "")).strip()
+        answer = str(item.get("answer", "")).strip()
+        if question and answer:
+            valid_items.append({"question": question, "answer": answer})
+    return valid_items
+
+
+def find_local_faq(question: str) -> dict | None:
+    faqs = load_faqs()
+    if not faqs:
+        return None
+
+    normalized_question = normalize_text(question)
+    question_words = useful_words(normalized_question)
+    if not question_words:
+        return None
+
     best_faq = None
-    best_score = 0
+    best_score = -1
+
     for faq in faqs:
-        faq_words = useful_words(faq["question"])
+        faq_question = str(faq.get("question", ""))
+        faq_words = useful_words(faq_question)
         score = len(question_words & faq_words)
+
+        if normalized_question and normalized_question in normalize_text(faq_question):
+            score += 5
+
         if score > best_score:
             best_faq = faq
             best_score = score
-    return best_faq
+
+    return best_faq if best_score > 0 else None
+
+
+def fallback_answer(question: str) -> str:
+    return (
+        "I could not find a matching approved FAQ for your question. "
+        "Please contact IT through your organization's approved channel."
+    )
+
+
+def answer_with_faq(question: str) -> str:
+    faq = find_local_faq(question)
+    if faq:
+        return str(faq.get("answer", fallback_answer(question)))
+    return fallback_answer(question)
+
+
+def answer_with_groq(question: str) -> str:
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key or api_key == "put_your_groq_api_key_here":
+        return answer_with_faq(question)
+
+    if Groq is None:
+        return answer_with_faq(question)
+
+    faq = find_local_faq(question)
+    faq_context = (
+        f"Approved FAQ question: {faq['question']}\nApproved answer: {faq['answer']}"
+        if faq
+        else "No matching approved FAQ was found."
+    )
+
+    model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    client = Groq(api_key=api_key)
+
+    try:
+        completion = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"Employee question: {question}\n\n{faq_context}"},
+            ],
+            temperature=0.2,
+            max_tokens=250,
+        )
+    except Exception:
+        return answer_with_faq(question)
+
+    if not completion or not getattr(completion, "choices", None):
+        return answer_with_faq(question)
+
+    message = completion.choices[0].message
+    content = getattr(message, "content", None)
+    if isinstance(content, str) and content.strip():
+        return content.strip()
+    return answer_with_faq(question)
+
+
+def handle_question(question: str) -> str:
+    faq = find_local_faq(question)
+    if faq:
+        return str(faq["answer"])
+    return answer_with_groq(question)
+
+
+def interactive_chat() -> None:
+    print("Alish: Hello! I can help with VPN, password, and software issues.")
+    print("Type 'exit' or 'quit' to end the conversation.")
+
+    while True:
+        try:
+            question = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nAlish: Goodbye.")
+            break
+
+        if not question:
+            print("Alish: Please enter your question.")
+            continue
+
+        if question.lower() in {"exit", "quit"}:
+            print("Alish: Goodbye.")
+            break
+
+        answer = handle_question(question)
+        print(f"Alish: {answer}")
 
 
 def main() -> None:
-    question = "How do I troubleshoot a VPN that will not connect?"
-    api_key = os.getenv("GROQ_API_KEY")
-
-    if not api_key or api_key == "put_your_groq_api_key_here":
-        print("Alina (local FAQ mode; no Groq API key configured)")
-        faq = find_local_faq(question)
-        if faq:
-            print(f"You: {question}")
-            print(f"Alina: {faq['answer']}")
-        else:
-            print("Alina: I could not find a matching FAQ. Please contact IT.")
+    if len(sys.argv) > 1:
+        question = " ".join(sys.argv[1:])
+        print(f"You: {question}")
+        print(f"Alish: {handle_question(question)}")
         return
 
-    model = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
-    client = Groq(api_key=api_key)
-    faq = find_local_faq(question)
-    if faq:
-        faq_context = f"Approved FAQ question: {faq['question']}\nApproved answer: {faq['answer']}"
-    else:
-        faq_context = "No matching approved FAQ was found."
-
-    completion = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": f"Employee question: {question}\n\n{faq_context}",
-            },
-        ],
-    )
-
-    answer = completion.choices[0].message.content or "I could not generate a reply."
-    print(f"You: {question}")
-    print(f"Alina: {answer}")
+    interactive_chat()
 
 
 if __name__ == "__main__":
