@@ -7,9 +7,9 @@ import websockets
 
 WS_URL = "ws://127.0.0.1:8000/ws/chat"
 TURNS = [
-    "My VPN will not connect. What should I try?",
-    "I tried restarting it, but it is still failing.",
-    "What details should I send IT about this problem?",
+    "My company VPN keeps disconnecting after I restart the approved client. Please create a high-priority ticket.",
+    "What mock ticket ID did you just create?",
+    "Will that mock ticket automatically reach the real IT team?",
 ]
 
 
@@ -34,6 +34,12 @@ async def main() -> None:
                     event_type = event.get("type")
                     if event_type == "token":
                         print(event.get("content", ""), end="", flush=True)
+                    elif event_type == "tool_call":
+                        arguments = json.dumps(event.get("arguments", {}), ensure_ascii=False)
+                        print(f"\n[Tool call] {event.get('name')}({arguments})")
+                    elif event_type == "tool_result":
+                        result = json.dumps(event.get("result", {}), ensure_ascii=False)
+                        print(f"[Mock tool result] {result}")
                     elif event_type == "done":
                         print()
                         break

@@ -30,7 +30,7 @@ Never recommend disabling or changing firewalls, antivirus, endpoint
 protection, or other security controls; bypassing admin controls; clearing,
 deleting, or modifying saved credentials; or installing unapproved software.
 Do not invent company-specific URLs, server addresses, tools, or procedures.
-Do not claim to create a ticket or contact IT.
+Do not claim that a real ticket was created or that you contacted IT. Only say a ticket was created after the running application confirms that action.
 """
 
 STOP_WORDS = {
