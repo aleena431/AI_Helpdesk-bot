@@ -32,6 +32,8 @@ system was contacted and no real ticket was submitted.
 MOCK_TICKETS: dict[str, dict[str, Any]] = {}
 NEXT_MOCK_TICKET_NUMBER = 1001
 MAX_TOOL_ROUNDS = 3
+MAX_HISTORY_MESSAGES = 6
+MAX_MESSAGE_CHARS = 1200
 
 TOOL_SCHEMAS = [
     {
@@ -126,6 +128,33 @@ async def send_error(websocket: WebSocket, message: str) -> None:
         logger.warning("Failed to send error message after WebSocket disconnect.")
 
 
+def bounded_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep Groq requests small enough for the on-demand TPM limit."""
+    if not messages:
+        return []
+
+    system = messages[0] if messages[0].get("role") == "system" else None
+    recent = messages[1:] if system else messages
+    recent = recent[-MAX_HISTORY_MESSAGES:]
+
+    bounded: list[dict[str, Any]] = []
+    if system:
+        bounded.append({
+            "role": "system",
+            "content": str(system.get("content", ""))[:MAX_MESSAGE_CHARS],
+        })
+
+    for message in recent:
+        content = message.get("content")
+        if isinstance(content, str) and len(content) > MAX_MESSAGE_CHARS:
+            content = content[:MAX_MESSAGE_CHARS].rstrip() + "..."
+        bounded.append({key: value for key, value in message.items()
+                        if key in {"role", "content", "tool_calls", "tool_call_id", "name"}} | (
+            {"content": content}
+        ))
+    return bounded
+
+
 async def safe_stream_answer(
     websocket: WebSocket,
     model: str,
@@ -145,16 +174,13 @@ async def safe_stream_answer(
         try:
             stream = await client.chat.completions.create(
                 model=model,
-                messages=messages,
+                messages=bounded_messages(messages),
                 tools=TOOL_SCHEMAS,
                 tool_choice="auto",
                 stream=True,
             )
 
             async for chunk in stream:
-                if websocket.application_state.name != "CONNECTED":
-                    raise WebSocketDisconnect()
-
                 choices = getattr(chunk, "choices", None) or []
                 if not choices:
                     continue
@@ -187,7 +213,13 @@ async def safe_stream_answer(
 
         except (RuntimeError, WebSocketDisconnect):
             raise
-        except Exception:
+        except Exception as exc:
+            error_text = str(exc).lower()
+            if "request too large" in error_text or "tokens per minute" in error_text:
+                logger.warning("Groq request exceeded the TPM limit; using the approved local FAQ fallback.")
+                response_text = fallback_answer(question)
+                await websocket.send_json({"type": "token", "content": response_text})
+                return response_text
             logger.exception("Groq streaming request failed")
             raise
 
