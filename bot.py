@@ -45,11 +45,18 @@ def normalize_text(text: str) -> str:
 
 
 def useful_words(text: str) -> set[str]:
-    return {
-        word
-        for word in normalize_text(text).split()
-        if word and word not in STOP_WORDS
-    }
+    words: set[str] = set()
+    for word in normalize_text(text).split():
+        if not word or word in STOP_WORDS:
+            continue
+        if word.endswith("ing") and len(word) > 4:
+            word = word[:-3]
+        elif word.endswith("ies") and len(word) > 4:
+            word = word[:-3] + "y"
+        elif word.endswith("s") and len(word) > 3:
+            word = word[:-1]
+        words.add(word)
+    return words
 
 
 def load_faqs() -> list[dict]:
@@ -79,23 +86,6 @@ def load_faqs() -> list[dict]:
 
 def find_local_faq(question: str) -> dict | None:
     """Retrieve the closest approved FAQ from the persistent local vector index."""
-    try:
-        import chromadb
-        from ingest_faqs import DB_PATH, COLLECTION, embed
-
-        client = chromadb.PersistentClient(path=str(DB_PATH))
-        collection = client.get_collection(COLLECTION)
-        result = collection.query(query_embeddings=[embed(question)], n_results=1)
-        ids = (result.get("ids") or [[]])[0]
-        metadatas = (result.get("metadatas") or [[]])[0]
-        distances = (result.get("distances") or [[]])[0]
-        if ids and metadatas and (not distances or distances[0] <= 0.72):
-            item = metadatas[0]
-            return {"question": item["question"], "answer": item["answer"]}
-    except Exception:
-        # Keep the bot usable before `python ingest_faqs.py` has been run.
-        pass
-
     faqs = load_faqs()
     if not faqs:
         return None
@@ -120,7 +110,25 @@ def find_local_faq(question: str) -> dict | None:
             best_faq = faq
             best_score = score
 
-    return best_faq if best_score > 0 else None
+    if best_score >= 2:
+        return best_faq
+
+    try:
+        import chromadb
+        from ingest_faqs import DB_PATH, COLLECTION, embed
+
+        client = chromadb.PersistentClient(path=str(DB_PATH))
+        collection = client.get_collection(COLLECTION)
+        result = collection.query(query_embeddings=[embed(question)], n_results=1)
+        ids = (result.get("ids") or [[]])[0]
+        metadatas = (result.get("metadatas") or [[]])[0]
+        distances = (result.get("distances") or [[]])[0]
+        if ids and metadatas and (not distances or distances[0] <= 0.72):
+            item = metadatas[0]
+            return {"question": item["question"], "answer": item["answer"]}
+    except Exception:
+        # Keep the bot usable before `python ingest_faqs.py` has been run.
+        pass
 
 
 def fallback_answer(question: str) -> str:
