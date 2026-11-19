@@ -19,3 +19,7 @@ Thumbs.db
 
 # Local vector database
 .chroma/
+
+*.png
+*.jpg
+*.jpeg
