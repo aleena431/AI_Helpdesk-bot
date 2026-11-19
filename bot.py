@@ -1,4 +1,4 @@
-"""Interactive IT helpdesk assistant using the local FAQ as the source of truth."""
+"""IT helpdesk assistant using local FAQs and optional vector search."""
 
 import json
 import os
@@ -8,13 +8,13 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
-except ImportError:  # pragma: no cover - optional dependency
+except ImportError:  # pragma: no cover
     def load_dotenv() -> bool:
         return False
 
 try:
     from groq import Groq
-except ImportError:  # pragma: no cover - optional dependency
+except ImportError:  # pragma: no cover
     Groq = None
 
 load_dotenv()
@@ -46,16 +46,16 @@ def normalize_text(text: str) -> str:
 
 def useful_words(text: str) -> set[str]:
     words: set[str] = set()
-    for word in normalize_text(text).split():
-        if not word or word in STOP_WORDS:
+    for w in normalize_text(text).split():
+        if not w or w in STOP_WORDS:
             continue
-        if word.endswith("ing") and len(word) > 4:
-            word = word[:-3]
-        elif word.endswith("ies") and len(word) > 4:
-            word = word[:-3] + "y"
-        elif word.endswith("s") and len(word) > 3:
-            word = word[:-1]
-        words.add(word)
+        if w.endswith("ing") and len(w) > 4:
+            w = w[:-3]
+        elif w.endswith("ies") and len(w) > 4:
+            w = w[:-3] + "y"
+        elif w.endswith("s") and len(w) > 3:
+            w = w[:-1]
+        words.add(w)
     return words
 
 
@@ -63,25 +63,17 @@ def load_faqs() -> list[dict]:
     faq_path = Path(__file__).with_name("faqs.json")
     if not faq_path.exists():
         return []
-
     try:
-        with faq_path.open("r", encoding="utf-8") as faq_file:
-            items = json.load(faq_file)
+        items = json.loads(faq_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, TypeError):
         return []
-
     if not isinstance(items, list):
         return []
-
-    valid_items: list[dict] = []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        question = str(item.get("question", "")).strip()
-        answer = str(item.get("answer", "")).strip()
-        if question and answer:
-            valid_items.append({"question": question, "answer": answer})
-    return valid_items
+    return [
+        {"question": str(item.get("question", "")).strip(), "answer": str(item.get("answer", "")).strip()}
+        for item in items
+        if isinstance(item, dict) and str(item.get("question", "")).strip() and str(item.get("answer", "")).strip()
+    ]
 
 
 def find_local_faq(question: str) -> dict | None:
@@ -95,20 +87,14 @@ def find_local_faq(question: str) -> dict | None:
     if not question_words:
         return None
 
-    best_faq = None
-    best_score = -1
-
+    best_faq, best_score = None, -1
     for faq in faqs:
         faq_question = str(faq.get("question", ""))
-        faq_words = useful_words(faq_question)
-        score = len(question_words & faq_words)
-
+        score = len(question_words & useful_words(faq_question))
         if normalized_question and normalized_question in normalize_text(faq_question):
             score += 5
-
         if score > best_score:
-            best_faq = faq
-            best_score = score
+            best_faq, best_score = faq, score
 
     if best_score >= 2:
         return best_faq
@@ -117,9 +103,8 @@ def find_local_faq(question: str) -> dict | None:
         import chromadb
         from ingest_faqs import DB_PATH, COLLECTION, embed
 
-        client = chromadb.PersistentClient(path=str(DB_PATH))
-        collection = client.get_collection(COLLECTION)
-        result = collection.query(query_embeddings=[embed(question)], n_results=1)
+        col = chromadb.PersistentClient(path=str(DB_PATH)).get_collection(COLLECTION)
+        result = col.query(query_embeddings=[embed(question)], n_results=1)
         ids = (result.get("ids") or [[]])[0]
         metadatas = (result.get("metadatas") or [[]])[0]
         distances = (result.get("distances") or [[]])[0]
@@ -127,11 +112,11 @@ def find_local_faq(question: str) -> dict | None:
             item = metadatas[0]
             return {"question": item["question"], "answer": item["answer"]}
     except Exception:
-        # Keep the bot usable before `python ingest_faqs.py` has been run.
         pass
+    return None
 
 
-def fallback_answer(question: str) -> str:
+def fallback_answer(question: str = "") -> str:
     return (
         "I could not find a matching approved FAQ for your question. "
         "Please contact IT through your organization's approved channel."
@@ -140,17 +125,12 @@ def fallback_answer(question: str) -> str:
 
 def answer_with_faq(question: str) -> str:
     faq = find_local_faq(question)
-    if faq:
-        return str(faq.get("answer", fallback_answer(question)))
-    return fallback_answer(question)
+    return str(faq.get("answer", fallback_answer(question))) if faq else fallback_answer(question)
 
 
 def answer_with_groq(question: str) -> str:
     api_key = os.getenv("GROQ_API_KEY")
-    if not api_key or api_key == "put_your_groq_api_key_here":
-        return answer_with_faq(question)
-
-    if Groq is None:
+    if not api_key or api_key == "put_your_groq_api_key_here" or Groq is None:
         return answer_with_faq(question)
 
     faq = find_local_faq(question)
@@ -160,12 +140,9 @@ def answer_with_groq(question: str) -> str:
         else "No matching approved FAQ was found."
     )
 
-    model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
-    client = Groq(api_key=api_key)
-
     try:
-        completion = client.chat.completions.create(
-            model=model,
+        completion = Groq(api_key=api_key).chat.completions.create(
+            model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"Employee question: {question}\n\n{faq_context}"},
@@ -179,50 +156,38 @@ def answer_with_groq(question: str) -> str:
     if not completion or not getattr(completion, "choices", None):
         return answer_with_faq(question)
 
-    message = completion.choices[0].message
-    content = getattr(message, "content", None)
-    if isinstance(content, str) and content.strip():
-        return content.strip()
-    return answer_with_faq(question)
+    content = getattr(completion.choices[0].message, "content", None)
+    return content.strip() if isinstance(content, str) and content.strip() else answer_with_faq(question)
 
 
 def handle_question(question: str) -> str:
     faq = find_local_faq(question)
-    if faq:
-        return str(faq["answer"])
-    return answer_with_groq(question)
+    return str(faq["answer"]) if faq else answer_with_groq(question)
 
 
 def interactive_chat() -> None:
     print("Alish: Hello! I can help with VPN, password, and software issues.")
     print("Type 'exit' or 'quit' to end the conversation.")
-
     while True:
         try:
             question = input("You: ").strip()
         except (EOFError, KeyboardInterrupt):
             print("\nAlish: Goodbye.")
             break
-
         if not question:
             print("Alish: Please enter your question.")
             continue
-
         if question.lower() in {"exit", "quit"}:
             print("Alish: Goodbye.")
             break
-
-        answer = handle_question(question)
-        print(f"Alish: {answer}")
+        print(f"Alish: {handle_question(question)}")
 
 
 def main() -> None:
     if len(sys.argv) > 1:
         question = " ".join(sys.argv[1:])
-        print(f"You: {question}")
-        print(f"Alish: {handle_question(question)}")
+        print(f"You: {question}\nAlish: {handle_question(question)}")
         return
-
     interactive_chat()
 
 
