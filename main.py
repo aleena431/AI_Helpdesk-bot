@@ -1,4 +1,4 @@
-"""FastAPI WebSocket chat endpoint with per-connection memory and safe streaming."""
+"""FastAPI WebSocket chat endpoint with per-connection memory and streaming."""
 
 import json
 import logging
@@ -22,12 +22,11 @@ client = AsyncGroq(api_key=API_KEY) if API_KEY else None
 
 app = FastAPI(title="Alish IT Helpdesk Assistant")
 
-WEBSOCKET_SYSTEM_PROMPT = SYSTEM_PROMPT + """
-In this WebSocket demo, create_ticket makes only an in-memory mock ticket. Use it
-only when the employee explicitly asks to create or file a ticket. After a
-successful tool result, give the mock ID and clearly state that no real IT
-system was contacted and no real ticket was submitted.
-"""
+WEBSOCKET_SYSTEM_PROMPT = (
+    SYSTEM_PROMPT
+    + "\ncreate_ticket creates an in-memory mock ticket only when explicitly requested. "
+    "After creating one, share the mock ID and state that no real IT system was contacted."
+)
 
 MOCK_TICKETS: dict[str, dict[str, Any]] = {}
 NEXT_MOCK_TICKET_NUMBER = 1001
@@ -40,10 +39,10 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "search_faq",
-            "description": "Search the approved local IT FAQ vector store and return the closest policy or support answer. Use this before answering policy or procedure questions.",
+            "description": "Search approved local IT FAQs before answering policy or support questions.",
             "parameters": {
                 "type": "object",
-                "properties": {"query": {"type": "string", "description": "The employee's question to search."}},
+                "properties": {"query": {"type": "string", "description": "Employee question."}},
                 "required": ["query"],
                 "additionalProperties": False,
             },
@@ -53,32 +52,25 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "create_ticket",
-            "description": (
-                "Create an in-memory mock IT helpdesk ticket for this demo. "
-                "Call only when the employee explicitly asks to create, open, file, or submit a ticket. "
-                "This does not contact a real IT system."
-            ),
+            "description": "Create a demo mock ticket only when explicitly asked to create or file a ticket.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "issue": {
-                        "type": "string",
-                        "description": "A concise summary of the employee's IT issue.",
-                    },
+                    "issue": {"type": "string", "description": "Concise summary of the IT issue."},
                     "priority": {
                         "type": "string",
                         "enum": ["low", "medium", "high", "urgent"],
-                        "description": "Ticket priority. Use medium if the employee did not specify one.",
+                        "description": "Ticket priority (default medium).",
                     },
                 },
                 "required": ["issue", "priority"],
                 "additionalProperties": False,
             },
         },
-    }
+    },
 ]
 
-TICKET_REQUEST_PATTERN = re.compile(
+TICKET_RE = re.compile(
     r"\b(create|open|file|raise|submit|log)\b.{0,60}\b(ticket|case)\b"
     r"|\b(ticket|case)\b.{0,60}\b(create|open|file|raise|submit|log)\b",
     re.IGNORECASE,
@@ -86,15 +78,10 @@ TICKET_REQUEST_PATTERN = re.compile(
 
 
 def create_ticket(issue: str, priority: str) -> dict[str, Any]:
-    """Create an in-memory demonstration ticket; no real helpdesk is contacted."""
     global NEXT_MOCK_TICKET_NUMBER
-
-    issue = issue.strip()
-    priority = priority.strip().lower()
-    if not issue:
-        return {"error": "The issue summary cannot be empty."}
-    if len(issue) > 500:
-        return {"error": "The issue summary must be 500 characters or fewer."}
+    issue, priority = issue.strip(), priority.strip().lower()
+    if not issue or len(issue) > 500:
+        return {"error": "Issue must be between 1 and 500 characters."}
     if priority not in {"low", "medium", "high", "urgent"}:
         return {"error": "Priority must be low, medium, high, or urgent."}
 
@@ -105,7 +92,7 @@ def create_ticket(issue: str, priority: str) -> dict[str, Any]:
         "issue": issue,
         "priority": priority,
         "status": "mock-created",
-        "note": "Demo only. This ticket was not sent to a real IT system.",
+        "note": "Demo only; not sent to a real IT system.",
     }
     MOCK_TICKETS[ticket_id] = ticket
     return ticket
@@ -114,58 +101,70 @@ def create_ticket(issue: str, priority: str) -> dict[str, Any]:
 def fallback_answer(question: str) -> str:
     faq = find_local_faq(question)
     if faq:
-        return str(faq.get("answer", "I could not find a matching FAQ answer."))
-    return (
-        "I could not find a matching approved FAQ for your question. "
-        "Please contact IT through your organization's approved channel."
-    )
+        return str(faq.get("answer", "No matching FAQ answer found."))
+    return "No matching approved FAQ found. Contact IT through an approved channel."
 
 
 async def send_error(websocket: WebSocket, message: str) -> None:
     try:
         await websocket.send_json({"type": "error", "content": message})
     except RuntimeError:
-        logger.warning("Failed to send error message after WebSocket disconnect.")
+        logger.warning("Failed to send error after WebSocket disconnect.")
 
 
 def bounded_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Keep Groq requests small enough for the on-demand TPM limit."""
     if not messages:
         return []
-
     system = messages[0] if messages[0].get("role") == "system" else None
-    recent = messages[1:] if system else messages
-    recent = recent[-MAX_HISTORY_MESSAGES:]
-
-    bounded: list[dict[str, Any]] = []
+    recent = (messages[1:] if system else messages)[-MAX_HISTORY_MESSAGES:]
+    allowed = {"role", "content", "tool_calls", "tool_call_id", "name"}
+    out: list[dict[str, Any]] = []
     if system:
-        bounded.append({
-            "role": "system",
-            "content": str(system.get("content", ""))[:MAX_MESSAGE_CHARS],
-        })
-
-    for message in recent:
-        content = message.get("content")
+        out.append({"role": "system", "content": str(system.get("content", ""))[:MAX_MESSAGE_CHARS]})
+    for msg in recent:
+        content = msg.get("content")
         if isinstance(content, str) and len(content) > MAX_MESSAGE_CHARS:
             content = content[:MAX_MESSAGE_CHARS].rstrip() + "..."
-        bounded.append({key: value for key, value in message.items()
-                        if key in {"role", "content", "tool_calls", "tool_call_id", "name"}} | (
-            {"content": content}
-        ))
-    return bounded
+        item = {k: v for k, v in msg.items() if k in allowed}
+        item["content"] = content
+        out.append(item)
+    return out
+
+
+def run_tool(
+    name: str, args: dict[str, Any], ticket_requested: bool, ticket_created: bool
+) -> tuple[dict[str, Any], bool]:
+    if name == "search_faq":
+        query = args.get("query")
+        if not isinstance(query, str) or not query.strip():
+            return {"error": "A non-empty query is required."}, ticket_created
+        faq = find_local_faq(query)
+        return (
+            ({"question": faq["question"], "answer": faq["answer"]} if faq else {"answer": "No matching FAQ found."}),
+            ticket_created,
+        )
+    if name != "create_ticket":
+        return {"error": "Unknown tool."}, ticket_created
+    if not ticket_requested:
+        return {"error": "Ask the user to explicitly request a ticket first."}, ticket_created
+    if ticket_created:
+        return {"error": "Only one mock ticket can be created per request."}, ticket_created
+
+    issue, priority = args.get("issue"), args.get("priority")
+    if not isinstance(issue, str) or not isinstance(priority, str):
+        return {"error": "Both issue and priority must be strings."}, ticket_created
+    res = create_ticket(issue, priority)
+    return res, ticket_created or ("ticket_id" in res)
 
 
 async def safe_stream_answer(
-    websocket: WebSocket,
-    model: str,
-    messages: list[dict[str, Any]],
-    question: str,
+    websocket: WebSocket, model: str, messages: list[dict[str, Any]], question: str
 ) -> str:
     if client is None:
         raise RuntimeError("GROQ_API_KEY is not configured.")
 
-    ticket_requested = bool(TICKET_REQUEST_PATTERN.search(question))
-    ticket_created_this_turn = False
+    ticket_requested = bool(TICKET_RE.search(question))
+    ticket_created = False
 
     for _ in range(MAX_TOOL_ROUNDS):
         answer_parts: list[str] = []
@@ -179,156 +178,99 @@ async def safe_stream_answer(
                 tool_choice="auto",
                 stream=True,
             )
-
             async for chunk in stream:
                 choices = getattr(chunk, "choices", None) or []
-                if not choices:
-                    continue
-
-                delta = getattr(choices[0], "delta", None)
+                delta = getattr(choices[0], "delta", None) if choices else None
                 if delta is None:
                     continue
-
                 token = getattr(delta, "content", None)
                 if isinstance(token, str) and token:
                     answer_parts.append(token)
                     await websocket.send_json({"type": "token", "content": token})
-
                 for call_delta in getattr(delta, "tool_calls", None) or []:
-                    index = getattr(call_delta, "index", 0)
-                    partial = tool_deltas.setdefault(
-                        index, {"id": None, "name": "", "arguments": ""}
-                    )
-                    call_id = getattr(call_delta, "id", None)
-                    if call_id:
-                        partial["id"] = call_id
-                    function_delta = getattr(call_delta, "function", None)
-                    if function_delta is not None:
-                        name_part = getattr(function_delta, "name", None)
-                        args_part = getattr(function_delta, "arguments", None)
-                        if name_part:
-                            partial["name"] = (partial["name"] or "") + name_part
-                        if args_part:
-                            partial["arguments"] = (partial["arguments"] or "") + args_part
-
+                    idx = getattr(call_delta, "index", 0)
+                    partial = tool_deltas.setdefault(idx, {"id": None, "name": "", "arguments": ""})
+                    if getattr(call_delta, "id", None):
+                        partial["id"] = call_delta.id
+                    fn = getattr(call_delta, "function", None)
+                    if fn is not None:
+                        if getattr(fn, "name", None):
+                            partial["name"] = (partial["name"] or "") + fn.name
+                        if getattr(fn, "arguments", None):
+                            partial["arguments"] = (partial["arguments"] or "") + fn.arguments
         except (RuntimeError, WebSocketDisconnect):
             raise
         except Exception as exc:
-            error_text = str(exc).lower()
-            if "request too large" in error_text or "tokens per minute" in error_text:
-                logger.warning("Groq request exceeded the TPM limit; using the approved local FAQ fallback.")
-                response_text = fallback_answer(question)
-                await websocket.send_json({"type": "token", "content": response_text})
-                return response_text
+            err = str(exc).lower()
+            if "request too large" in err or "tokens per minute" in err:
+                logger.warning("Groq TPM limit hit; using local FAQ fallback.")
+                text = fallback_answer(question)
+                await websocket.send_json({"type": "token", "content": text})
+                return text
             logger.exception("Groq streaming request failed")
             raise
 
-        if tool_deltas:
-            assistant_tool_calls = []
-            for index, partial in sorted(tool_deltas.items()):
-                assistant_tool_calls.append({
-                    "id": partial["id"] or f"call-local-{index}",
-                    "type": "function",
-                    "function": {
-                        "name": partial["name"] or "",
-                        "arguments": partial["arguments"] or "{}",
-                    },
-                })
+        if not tool_deltas:
+            text = "".join(answer_parts)
+            if not text:
+                text = fallback_answer(question)
+                await websocket.send_json({"type": "token", "content": text})
+            return text
+
+        calls = [
+            {
+                "id": p["id"] or f"call-local-{i}",
+                "type": "function",
+                "function": {"name": p["name"] or "", "arguments": p["arguments"] or "{}"},
+            }
+            for i, p in sorted(tool_deltas.items())
+        ]
+        messages.append({"role": "assistant", "content": None, "tool_calls": calls})
+
+        for call in calls:
+            fn_name = call["function"]["name"]
+            try:
+                args = json.loads(call["function"]["arguments"])
+                if not isinstance(args, dict):
+                    raise ValueError("Arguments must be a JSON object.")
+                result, ticket_created = run_tool(fn_name, args, ticket_requested, ticket_created)
+            except (json.JSONDecodeError, ValueError):
+                args, result = {}, {"error": "Invalid tool arguments."}
+
+            await websocket.send_json({"type": "tool_call", "name": fn_name, "arguments": args})
+            await websocket.send_json({"type": "tool_result", "name": fn_name, "result": result})
             messages.append({
-                "role": "assistant",
-                "content": None,
-                "tool_calls": assistant_tool_calls,
+                "role": "tool",
+                "tool_call_id": call["id"],
+                "name": fn_name,
+                "content": json.dumps(result),
             })
 
-            for tool_call in assistant_tool_calls:
-                function_name = tool_call["function"]["name"]
-                try:
-                    arguments = json.loads(tool_call["function"]["arguments"])
-                    if not isinstance(arguments, dict):
-                        raise ValueError("Tool arguments must be a JSON object.")
-                except (json.JSONDecodeError, ValueError):
-                    arguments = {}
-                    result: dict[str, Any] = {"error": "The model sent invalid tool arguments."}
-                else:
-                    if function_name == "search_faq":
-                        query = arguments.get("query")
-                        if not isinstance(query, str) or not query.strip():
-                            result = {"error": "A non-empty query is required."}
-                        else:
-                            faq = find_local_faq(query)
-                            result = ({"question": faq["question"], "answer": faq["answer"]}
-                                      if faq else {"answer": "No matching approved FAQ was found."})
-                    elif function_name != "create_ticket":
-                        result = {"error": "Unknown tool."}
-                    elif not ticket_requested:
-                        result = {"error": "Ask the user to explicitly request a ticket before creating one."}
-                    elif ticket_created_this_turn:
-                        result = {"error": "Only one mock ticket can be created for this request."}
-                    else:
-                        issue = arguments.get("issue")
-                        priority = arguments.get("priority")
-                        if not isinstance(issue, str) or not isinstance(priority, str):
-                            result = {"error": "Both issue and priority must be strings."}
-                        else:
-                            result = create_ticket(issue, priority)
-                            ticket_created_this_turn = "ticket_id" in result
-
-                await websocket.send_json({
-                    "type": "tool_call",
-                    "name": function_name,
-                    "arguments": arguments,
-                })
-                await websocket.send_json({
-                    "type": "tool_result",
-                    "name": function_name,
-                    "result": result,
-                })
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call["id"],
-                    "name": function_name,
-                    "content": json.dumps(result),
-                })
-            continue
-
-        response_text = "".join(answer_parts)
-        if not response_text:
-            response_text = fallback_answer(question)
-            await websocket.send_json({"type": "token", "content": response_text})
-        return response_text
-
-    raise RuntimeError("The assistant exceeded the tool-call limit for one message.")
+    raise RuntimeError("Exceeded tool-call limit for one message.")
 
 
 @app.websocket("/ws/chat")
 async def chat_socket(websocket: WebSocket) -> None:
     await websocket.accept()
-
     if client is None:
-        await send_error(websocket, "Set GROQ_API_KEY in the local .env file.")
+        await send_error(websocket, "Set GROQ_API_KEY in .env.")
         await websocket.close(code=1011)
         return
 
     messages: list[dict[str, Any]] = [{"role": "system", "content": WEBSOCKET_SYSTEM_PROMPT}]
-
     try:
         while True:
             try:
                 payload = await websocket.receive_json()
             except WebSocketDisconnect:
-                logger.info("Helpdesk chat disconnected; in-memory history discarded.")
                 return
             except Exception:
-                await send_error(websocket, "Send valid JSON in the format {\"message\": \"your question\"}.")
+                await send_error(websocket, 'Send valid JSON: {"message": "your question"}.')
                 continue
 
-            if not isinstance(payload, dict):
-                await send_error(websocket, "Send a JSON object with a non-empty 'message' field.")
-                continue
-
-            question = payload.get("message")
+            question = payload.get("message") if isinstance(payload, dict) else None
             if not isinstance(question, str) or not question.strip():
-                await send_error(websocket, "Send a non-empty message field.")
+                await send_error(websocket, "Send a non-empty 'message' field.")
                 continue
 
             question = question.strip()
@@ -337,36 +279,24 @@ async def chat_socket(websocket: WebSocket) -> None:
                 continue
 
             faq = find_local_faq(question)
-            if faq:
-                user_content = (
-                    f"Employee question: {question}\n\n"
-                    f"Approved FAQ question: {faq['question']}\n"
-                    f"Approved answer: {faq['answer']}"
-                )
-            else:
-                user_content = f"Employee question: {question}\n\nNo matching approved FAQ was found."
-
+            user_content = (
+                f"Employee question: {question}\n\n"
+                f"Approved FAQ question: {faq['question']}\nApproved answer: {faq['answer']}"
+                if faq
+                else f"Employee question: {question}\n\nNo matching approved FAQ found."
+            )
             messages.append({"role": "user", "content": user_content})
 
             try:
                 response_text = await safe_stream_answer(websocket, MODEL, messages, question)
             except WebSocketDisconnect:
-                logger.info("Client disconnected while receiving response.")
                 return
             except Exception:
                 messages.pop()
-                await send_error(websocket, "The assistant could not complete the request.")
+                await send_error(websocket, "Could not complete the request.")
                 continue
 
-            if response_text:
-                messages.append({"role": "assistant", "content": response_text})
-            else:
-                fallback = fallback_answer(question)
-                messages.append({"role": "assistant", "content": fallback})
-                await websocket.send_json({"type": "token", "content": fallback})
-
+            messages.append({"role": "assistant", "content": response_text})
             await websocket.send_json({"type": "done"})
-
     except WebSocketDisconnect:
-        logger.info("Helpdesk chat disconnected; in-memory history discarded.")
-
+        logger.info("Helpdesk chat disconnected.")

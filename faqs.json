@@ -2,76 +2,76 @@
   {
     "id": 1,
     "question": "How do I connect to the company VPN?",
-    "answer": "Open the VPN client provided by your organization, sign in using your work account, and complete the approved multi-factor authentication prompt. If you are unsure which VPN client or server to use, check your organization's IT instructions or contact the helpdesk."
+    "answer": "Open the approved VPN client, sign in with your work account, and complete MFA. Check IT instructions or contact the helpdesk if unsure of the client or server."
   },
   {
     "id": 2,
     "question": "My VPN will not connect. What should I try?",
-    "answer": "Check that your internet connection works, then close and reopen the approved VPN client and try again. Note any error message. If the issue continues, contact IT with the error text and the time it occurred; do not send your password or verification code."
+    "answer": "Verify your internet connection, restart the VPN client, and note any error. If it persists, contact IT with the error text and time—never share passwords or codes."
   },
   {
     "id": 3,
     "question": "The VPN disconnects frequently. What can I do?",
-    "answer": "Check whether your Wi-Fi or internet connection is dropping, and try the organization's approved network if available. Restart the VPN client. If disconnections continue, record when they happen and contact IT."
+    "answer": "Check for network drops, try an approved network if available, and restart the VPN client. If disconnections continue, note when they occur and contact IT."
   },
   {
     "id": 4,
     "question": "I cannot access a work drive while connected to VPN. Why?",
-    "answer": "Confirm the VPN shows as connected and that you are using the correct work account. Some drives require a specific network or permission. Follow your organization's drive-mapping instructions or contact IT to check access."
+    "answer": "Confirm the VPN is connected and you are using the right work account. Some drives need specific networks or permissions—follow drive-mapping steps or contact IT."
   },
   {
     "id": 5,
     "question": "The VPN asks me to approve a sign-in I did not start. What should I do?",
-    "answer": "Do not approve the request. Deny it if possible, then report it to your organization's IT or security team through an approved channel. Never share a verification code."
+    "answer": "Deny the request immediately and report it to IT or security via an approved channel. Never share a verification code."
   },
   {
     "id": 6,
     "question": "How do I change my work password?",
-    "answer": "Use your organization's official password-change page or approved sign-in settings. Verify the site address using your organization's instructions. If you cannot find the official process, contact IT. Never send your current or new password to anyone."
+    "answer": "Use the official password-change page or approved sign-in settings after verifying the URL. Contact IT if unsure, and never share current or new passwords."
   },
   {
     "id": 7,
     "question": "I forgot my work password. How can I reset it?",
-    "answer": "Use the password-reset link on your organization's official sign-in page and complete its identity checks. If self-service reset is unavailable, contact IT using a known, approved channel. Do not share passwords or one-time codes."
+    "answer": "Use the password-reset link on the official sign-in page and complete identity checks, or contact IT via an approved channel. Never share passwords or codes."
   },
   {
     "id": 8,
     "question": "My account says my password has expired. What should I do?",
-    "answer": "Follow the password-change prompt on your organization's official sign-in page. If the prompt looks unexpected or you cannot complete the change, stop and contact IT through an approved channel."
+    "answer": "Follow the password-change prompt on the official sign-in page. If it looks unexpected or fails, stop and contact IT through an approved channel."
   },
   {
     "id": 9,
     "question": "My account is locked after several sign-in attempts. How do I unlock it?",
-    "answer": "Wait for any lockout period shown by your organization's sign-in page, then use its approved unlock or password-reset process. If you still cannot sign in, contact IT. Avoid repeated guesses."
+    "answer": "Wait out any lockout period shown on the sign-in page, then use the approved unlock or reset process. Avoid repeated guesses and contact IT if still locked."
   },
   {
     "id": 10,
     "question": "I lost access to my multi-factor authentication device. What should I do?",
-    "answer": "Contact your organization's IT team using a known, approved channel and ask for its account-recovery process. Do not share backup codes or approve sign-in requests you did not initiate."
+    "answer": "Contact IT via an approved channel to start account recovery. Never share backup codes or approve unexpected sign-in prompts."
   },
   {
     "id": 11,
     "question": "Can I share my password with the helpdesk so they can fix my account?",
-    "answer": "No. Never share your password, one-time verification code, or recovery code. IT should use an approved identity-verification and recovery process instead."
+    "answer": "No. Never share passwords, one-time codes, or recovery codes; IT uses an approved verification and recovery process."
   },
   {
     "id": 12,
     "question": "How do I install approved software?",
-    "answer": "Use your organization's software portal or another installation method specifically approved by IT. Check that the application and publisher are authorized before installing. Contact IT if you cannot find the software."
+    "answer": "Install through the IT-approved software portal or method after confirming the app and publisher are authorized. Contact IT if you cannot find it."
   },
   {
     "id": 13,
     "question": "The software installer asks for administrator permission. What should I do?",
-    "answer": "Do not try to bypass the restriction or use someone else's administrator account. Submit the installation request through your organization's approved IT process."
+    "answer": "Do not bypass the prompt or use another person's admin account. Submit a request through the approved IT installation process."
   },
   {
     "id": 14,
     "question": "An installed application will not open. What should I try?",
-    "answer": "Close and reopen the application, then restart your device if convenient. Note any error message and check whether an update is available through your organization's approved software portal. Contact IT if the problem continues."
+    "answer": "Reopen the app, restart your device if convenient, note any error, and check the software portal for updates. Contact IT if the issue continues."
   },
   {
     "id": 15,
     "question": "How do I request a new work application?",
-    "answer": "Submit a request through your organization's approved software-request process. Include the application's name, the work task it supports, and any error or deadline details. IT may need to review licensing, security, and compatibility before approval."
+    "answer": "Submit an IT software request with the app name, supported work task, and any errors or deadlines so IT can review licensing, security, and compatibility."
   }
 ]
