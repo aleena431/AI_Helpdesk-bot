@@ -78,6 +78,24 @@ def load_faqs() -> list[dict]:
 
 
 def find_local_faq(question: str) -> dict | None:
+    """Retrieve the closest approved FAQ from the persistent local vector index."""
+    try:
+        import chromadb
+        from ingest_faqs import DB_PATH, COLLECTION, embed
+
+        client = chromadb.PersistentClient(path=str(DB_PATH))
+        collection = client.get_collection(COLLECTION)
+        result = collection.query(query_embeddings=[embed(question)], n_results=1)
+        ids = (result.get("ids") or [[]])[0]
+        metadatas = (result.get("metadatas") or [[]])[0]
+        distances = (result.get("distances") or [[]])[0]
+        if ids and metadatas and (not distances or distances[0] <= 0.72):
+            item = metadatas[0]
+            return {"question": item["question"], "answer": item["answer"]}
+    except Exception:
+        # Keep the bot usable before `python ingest_faqs.py` has been run.
+        pass
+
     faqs = load_faqs()
     if not faqs:
         return None

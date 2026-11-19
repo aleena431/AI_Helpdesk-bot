@@ -37,6 +37,19 @@ TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "search_faq",
+            "description": "Search the approved local IT FAQ vector store and return the closest policy or support answer. Use this before answering policy or procedure questions.",
+            "parameters": {
+                "type": "object",
+                "properties": {"query": {"type": "string", "description": "The employee's question to search."}},
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "create_ticket",
             "description": (
                 "Create an in-memory mock IT helpdesk ticket for this demo. "
@@ -205,7 +218,15 @@ async def safe_stream_answer(
                     arguments = {}
                     result: dict[str, Any] = {"error": "The model sent invalid tool arguments."}
                 else:
-                    if function_name != "create_ticket":
+                    if function_name == "search_faq":
+                        query = arguments.get("query")
+                        if not isinstance(query, str) or not query.strip():
+                            result = {"error": "A non-empty query is required."}
+                        else:
+                            faq = find_local_faq(query)
+                            result = ({"question": faq["question"], "answer": faq["answer"]}
+                                      if faq else {"answer": "No matching approved FAQ was found."})
+                    elif function_name != "create_ticket":
                         result = {"error": "Unknown tool."}
                     elif not ticket_requested:
                         result = {"error": "Ask the user to explicitly request a ticket before creating one."}
