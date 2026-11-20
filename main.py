@@ -8,6 +8,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from groq import AsyncGroq
 
 from bot import SYSTEM_PROMPT, find_local_faq
@@ -21,9 +22,11 @@ MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 client = AsyncGroq(api_key=API_KEY) if API_KEY else None
 
 app = FastAPI(title="Alish IT Helpdesk Assistant")
+INDEX_PATH = os.path.join(os.path.dirname(__file__), "index.html")
 
 WEBSOCKET_SYSTEM_PROMPT = (
     SYSTEM_PROMPT
+    + "\nFor every policy or procedure question, call search_faq before answering, even if you think you know the answer. Base the reply on the returned approved FAQ."
     + "\ncreate_ticket creates an in-memory mock ticket only when explicitly requested. "
     "After creating one, share the mock ID and state that no real IT system was contacted."
 )
@@ -33,6 +36,9 @@ NEXT_MOCK_TICKET_NUMBER = 1001
 MAX_TOOL_ROUNDS = 3
 MAX_HISTORY_MESSAGES = 6
 MAX_MESSAGE_CHARS = 1200
+# Leave room beneath the 7,000 TPM target for request framing and the response.
+MAX_PROMPT_BYTES = 5600
+MAX_COMPLETION_TOKENS = 600
 
 TOOL_SCHEMAS = [
     {
@@ -128,6 +134,26 @@ def bounded_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         item = {k: v for k, v in msg.items() if k in allowed}
         item["content"] = content
         out.append(item)
+
+    def serialized_size(items: list[dict[str, Any]]) -> int:
+        request = json.dumps(
+            {"messages": items, "tools": TOOL_SCHEMAS}, ensure_ascii=False
+        )
+        return len(request.encode("utf-8"))
+
+    # UTF-8 bytes are a conservative upper bound for text-token count. Drop
+    # complete older user turns while preserving the system prompt and current turn.
+    history = out[1:] if system else out[:]
+    prefix = out[:1] if system else []
+    while serialized_size(prefix + history) > MAX_PROMPT_BYTES:
+        later_user = next(
+            (i for i, msg in enumerate(history[1:], start=1) if msg.get("role") == "user"),
+            None,
+        )
+        if later_user is None:
+            break
+        history = history[later_user:]
+    out = prefix + history
     return out
 
 
@@ -177,6 +203,7 @@ async def safe_stream_answer(
                 tools=TOOL_SCHEMAS,
                 tool_choice="auto",
                 stream=True,
+                max_tokens=MAX_COMPLETION_TOKENS,
             )
             async for chunk in stream:
                 choices = getattr(chunk, "choices", None) or []
@@ -278,13 +305,7 @@ async def chat_socket(websocket: WebSocket) -> None:
                 await send_error(websocket, "Keep each message under 2,000 characters.")
                 continue
 
-            faq = find_local_faq(question)
-            user_content = (
-                f"Employee question: {question}\n\n"
-                f"Approved FAQ question: {faq['question']}\nApproved answer: {faq['answer']}"
-                if faq
-                else f"Employee question: {question}\n\nNo matching approved FAQ found."
-            )
+            user_content = f"Employee question: {question}"
             messages.append({"role": "user", "content": user_content})
 
             try:
@@ -300,3 +321,8 @@ async def chat_socket(websocket: WebSocket) -> None:
             await websocket.send_json({"type": "done"})
     except WebSocketDisconnect:
         logger.info("Helpdesk chat disconnected.")
+
+
+@app.get("/")
+async def home() -> FileResponse:
+    return FileResponse(INDEX_PATH)

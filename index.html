@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7fb">
+  <title>Alish · IT Helpdesk</title>
+  <style>
+    :root{color-scheme:light;--ink:#17243a;--muted:#69778d;--line:#e6ebf2;--blue:#345eea;--pale:#f5f7fb;--green:#147a54}
+    *{box-sizing:border-box}body{margin:0;background:var(--pale);color:var(--ink);font:15px/1.55 Inter,"Segoe UI",Arial,sans-serif;min-height:100vh}
+    .shell{max-width:1000px;margin:0 auto;min-height:100vh;padding:28px 28px 24px;display:flex;flex-direction:column}
+    header{display:flex;align-items:center;gap:13px;padding:2px 4px 22px;border-bottom:1px solid var(--line)}
+    .logo{width:42px;height:42px;border-radius:14px;background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:800;font-size:20px;box-shadow:0 6px 16px #345eea38}
+    .brand{font-weight:750;font-size:17px;letter-spacing:-.02em}.subtitle{font-size:12px;color:var(--muted);margin-top:1px}
+    .connection{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);background:#fff;border:1px solid var(--line);padding:8px 11px;border-radius:20px}
+    .dot{width:8px;height:8px;border-radius:50%;background:#aab3c1}.connection.online .dot{background:#16a36e}.connection.connecting .dot{background:#e0a52e}
+    main{flex:1;display:flex;flex-direction:column;width:min(760px,100%);margin:30px auto 0}
+    .intro{margin:0 0 20px}.kicker{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--blue);font-weight:750}.intro h1{font-size:25px;line-height:1.2;letter-spacing:-.035em;margin:6px 0}.intro p{margin:0;color:var(--muted);font-size:13px}
+    .chat{flex:1;min-height:340px;max-height:calc(100vh - 360px);overflow:auto;padding:20px 18px;background:#fff;border:1px solid var(--line);border-radius:18px 18px 8px 8px;box-shadow:0 12px 32px #1e34530a}
+    .welcome{height:100%;min-height:290px;display:grid;place-content:center;text-align:center;color:var(--muted);padding:25px}.welcome .spark{margin:0 auto 12px;width:44px;height:44px;border-radius:15px;background:#edf1ff;color:var(--blue);display:grid;place-items:center;font-size:21px}.welcome strong{color:var(--ink);font-size:15px}.welcome span{font-size:13px;margin-top:3px}
+    .row{display:flex;margin:0 0 18px;gap:10px;align-items:flex-start}.row.user{justify-content:flex-end}.bubble{max-width:min(84%,620px);padding:12px 15px;border-radius:15px;background:#f4f6fa;white-space:pre-wrap;overflow-wrap:anywhere}.user .bubble{background:#eaf0ff;border-radius:15px 15px 4px 15px}.assistant .bubble{border:1px solid #edf0f5;border-radius:4px 15px 15px 15px}.avatar{flex:0 0 28px;width:28px;height:28px;border-radius:10px;background:#edf1ff;color:var(--blue);font-size:12px;font-weight:800;display:grid;place-items:center}.meta{font-size:10px;font-weight:700;letter-spacing:.06em;color:#8290a4;text-transform:uppercase;margin-bottom:5px}.tool{margin:5px 0 13px 38px;padding:10px 12px;border-radius:10px;border:1px solid #dce6ff;background:#f5f8ff;color:#43577f;font-size:12px}.tool strong{color:#2d50c7}.tool pre{margin:5px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.4 ui-monospace,Consolas,monospace;color:#66758b}.error{color:#9c3434;background:#fff3f2;border-color:#f2d2cf}.typing{display:inline-block;width:7px;height:14px;background:var(--blue);vertical-align:-2px;animation:blink 1s steps(2,start) infinite}@keyframes blink{to{visibility:hidden}}
+    .suggestions{display:flex;gap:8px;flex-wrap:wrap;padding:13px 2px}.suggestions button{border:1px solid #dfe5ef;background:#fff;color:#45536a;padding:8px 11px;border-radius:18px;font:inherit;font-size:12px;cursor:pointer}.suggestions button:hover{border-color:#aabaf7;color:#284bd1}
+    .composer{display:flex;align-items:flex-end;gap:10px;padding:12px;background:#fff;border:1px solid var(--line);border-radius:8px 8px 16px 16px;box-shadow:0 12px 32px #1e34530a}.composer textarea{resize:none;flex:1;max-height:115px;min-height:42px;border:0;outline:0;padding:10px 7px;color:var(--ink);font:inherit;font-size:14px;line-height:1.45}.composer textarea::placeholder{color:#9aa5b5}.send,.reset{height:40px;border:0;border-radius:11px;cursor:pointer;font-weight:700}.send{width:44px;background:var(--blue);color:white;font-size:17px}.send:disabled{opacity:.45;cursor:default}.reset{padding:0 12px;background:#f0f2f6;color:#637087;font-size:12px}.hint{display:flex;justify-content:space-between;color:#8b96a7;font-size:11px;padding:9px 5px 0}footer{color:#929cad;font-size:11px;text-align:center;padding-top:20px}
+    @media(max-width:600px){.shell{padding:16px 12px}.connection{font-size:0;padding:9px}.connection .dot{width:9px;height:9px}.intro h1{font-size:22px}.chat{min-height:330px;max-height:calc(100vh - 365px);padding:15px 11px}.suggestions{gap:6px}.suggestions button{font-size:11px}.reset{padding:0 9px}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="logo">A</div>
+      <div><div class="brand">Alish Helpdesk</div><div class="subtitle">IT support · answers grounded in approved FAQs</div></div>
+      <div id="connection" class="connection connecting"><span class="dot"></span><span id="connectionText">Connecting…</span></div>
+    </header>
+    <main>
+      <section class="intro"><div class="kicker">Employee support</div><h1>What can I help with?</h1><p>Ask about VPN, account access, or approved software. Don’t share passwords or verification codes.</p></section>
+      <section id="chat" class="chat" aria-live="polite"><div id="welcome" class="welcome"><div class="spark">✦</div><strong>Your IT helpdesk assistant</strong><span>Each connection keeps a short conversation history.</span></div></section>
+      <nav class="suggestions" aria-label="Example questions">
+        <button data-prompt="Search the approved FAQ: Can I share my password with the helpdesk?">Search an FAQ</button>
+        <button data-prompt="My VPN keeps disconnecting. Please create a high-priority ticket.">Create a mock ticket</button>
+        <button data-prompt="What was the issue in the ticket I just created?">Ask about the previous turn</button>
+      </nav>
+      <form id="form" class="composer">
+        <textarea id="message" maxlength="2000" rows="1" placeholder="Type your message…" aria-label="Your message"></textarea>
+        <button id="reset" class="reset" type="button" title="Start a new conversation">New chat</button>
+        <button id="send" class="send" type="submit" aria-label="Send message">↑</button>
+      </form>
+      <div class="hint"><span>Enter to send · Shift+Enter for a new line</span><span id="counter">0 / 2,000</span></div>
+    </main>
+    <footer>Demo only: created tickets are in-memory mock tickets and are never sent to a real IT system.</footer>
+  </div>
+<script>
+(() => {
+  const chat = document.querySelector('#chat');
+  const welcome = document.querySelector('#welcome');
+  const form = document.querySelector('#form');
+  const input = document.querySelector('#message');
+  const send = document.querySelector('#send');
+  const reset = document.querySelector('#reset');
+  const counter = document.querySelector('#counter');
+  const connection = document.querySelector('#connection');
+  const connectionText = document.querySelector('#connectionText');
+  let socket, activeBubble = null, busy = false;
+
+  function setConnection(state, label) {
+    connection.className = `connection ${state}`;
+    connectionText.textContent = label;
+  }
+  function connect() {
+    const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    socket = new WebSocket(`${scheme}//${location.host}/ws/chat`);
+    const thisSocket = socket;
+    setConnection('connecting', 'Connecting…');
+    socket.addEventListener('open', () => { if (socket === thisSocket) setConnection('online', 'Connected'); });
+    socket.addEventListener('close', () => { if (socket === thisSocket) setConnection('', 'Disconnected'); });
+    socket.addEventListener('error', () => { if (socket === thisSocket) setConnection('', 'Connection error'); });
+    socket.addEventListener('message', event => {
+      if (socket !== thisSocket) return;
+      let data;
+      try { data = JSON.parse(event.data); } catch { return; }
+      if (data.type === 'token') {
+        if (!activeBubble) activeBubble = addMessage('assistant', '');
+        activeBubble.querySelector('.text').textContent += data.content || '';
+        scrollBottom();
+      } else if (data.type === 'tool_call') {
+        addTool(`Calling ${data.name}`, data.arguments || {});
+      } else if (data.type === 'tool_result') {
+        addTool(`${data.name} result`, data.result || {});
+      } else if (data.type === 'error') {
+        addTool('Server message', data.content || 'Request failed.', true);
+        busy = false; send.disabled = false; activeBubble = null;
+      } else if (data.type === 'done') {
+        if (activeBubble) {
+          const cursor = activeBubble.querySelector('.typing');
+          if (cursor) cursor.remove();
+        }
+        activeBubble = null;
+        busy = false;
+        send.disabled = false;
+        input.focus();
+      }
+    });
+  }
+  function addMessage(role, text) {
+    welcome?.remove();
+    const row = document.createElement('div');
+    row.className = `row ${role}`;
+    if (role === 'assistant') {
+      const avatar = document.createElement('div'); avatar.className = 'avatar'; avatar.textContent = 'A'; row.append(avatar);
+    }
+    const bubble = document.createElement('div'); bubble.className = 'bubble';
+    const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = role === 'user' ? 'You' : 'Alish · assistant';
+    const body = document.createElement('div'); body.className = 'text'; body.textContent = text;
+    if (role === 'assistant') { const cursor = document.createElement('span'); cursor.className = 'typing'; body.append(cursor); }
+    bubble.append(meta, body); row.append(bubble); chat.append(row); scrollBottom(); return bubble;
+  }
+  function addTool(title, detail, isError = false) {
+    const box = document.createElement('div'); box.className = `tool${isError ? ' error' : ''}`;
+    const heading = document.createElement('strong'); heading.textContent = title;
+    const pre = document.createElement('pre'); pre.textContent = typeof detail === 'string' ? detail : JSON.stringify(detail, null, 2);
+    box.append(heading, pre); chat.append(box); scrollBottom();
+  }
+  function scrollBottom() { chat.scrollTop = chat.scrollHeight; }
+  function submit(text) {
+    const value = text.trim();
+    if (!value || busy || !socket || socket.readyState !== WebSocket.OPEN) return;
+    addMessage('user', value);
+    socket.send(JSON.stringify({message: value}));
+    busy = true; send.disabled = true;
+    input.value = ''; updateCounter(); input.style.height = 'auto';
+  }
+  function updateCounter() { counter.textContent = `${input.value.length.toLocaleString()} / 2,000`; }
+
+  form.addEventListener('submit', event => { event.preventDefault(); submit(input.value); });
+  input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = `${Math.min(input.scrollHeight, 115)}px`; updateCounter(); });
+  input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); form.requestSubmit(); } });
+  document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => submit(button.dataset.prompt)));
+  reset.addEventListener('click', () => {
+    socket?.close(); chat.innerHTML = ''; chat.append(welcome); activeBubble = null; busy = false; send.disabled = false; connect(); input.focus();
+  });
+  updateCounter(); connect();
+})();
+</script>
+</body>
+</html>
