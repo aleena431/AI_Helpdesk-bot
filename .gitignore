@@ -31,3 +31,5 @@ output/
 *.pdf
 
 rag_demo.html
+
+test_client.py
