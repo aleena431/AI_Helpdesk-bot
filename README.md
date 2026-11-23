@@ -1,11 +1,9 @@
-# Alish IT Helpdesk
+# Alish — IT Helpdesk Assistant
 
-FastAPI + WebSocket IT helpdesk assistant featuring streaming replies, per-connection memory, local ChromaDB/lexical FAQ search (`faqs.json`), and mock ticket creation (`MOCK-...`).
+FastAPI + WebSocket IT helpdesk chatbot with ChromaDB FAQ retrieval, session memory, and a mock `create_ticket(issue, priority)` tool.
 
-## Setup (PowerShell)
+## Setup & Run
 
-```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-Copy-Item .env.example .env
+1. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
