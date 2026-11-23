@@ -1,121 +1,55 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Alish · IT Helpdesk</title>
-  <style>
-    :root{--ink:#17243a;--muted:#69778d;--line:#e6ebf2;--blue:#345eea;--pale:#f5f7fb}
-    *{box-sizing:border-box}body{margin:0;background:var(--pale);color:var(--ink);font:15px/1.5 system-ui,sans-serif;min-height:100vh}
-    .shell{max-width:760px;margin:0 auto;min-height:100vh;padding:20px 16px;display:flex;flex-direction:column}
-    header{display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--line)}
-    .logo{width:38px;height:38px;border-radius:12px;background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:800;font-size:18px}
-    .brand{font-weight:700;font-size:16px}.sub{font-size:12px;color:var(--muted)}
-    .conn{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);background:#fff;border:1px solid var(--line);padding:6px 10px;border-radius:20px}
-    .dot{width:8px;height:8px;border-radius:50%;background:#aab3c1}.conn.online .dot{background:#16a36e}.conn.connecting .dot{background:#e0a52e}
-    main{flex:1;display:flex;flex-direction:column;margin-top:20px}
-    .intro h1{font-size:22px;margin:0 0 4px}.intro p{margin:0 0 16px;color:var(--muted);font-size:13px}
-    .chat{flex:1;min-height:320px;max-height:calc(100vh - 320px);overflow:auto;padding:16px;background:#fff;border:1px solid var(--line);border-radius:14px 14px 6px 6px}
-    .welcome{height:100%;min-height:260px;display:grid;place-content:center;text-align:center;color:var(--muted)}
-    .row{display:flex;margin-bottom:14px;gap:8px}.row.user{justify-content:flex-end}
-    .bubble{max-width:85%;padding:10px 14px;border-radius:14px;background:#f4f6fa;white-space:pre-wrap;overflow-wrap:anywhere}
-    .user .bubble{background:#eaf0ff}.avatar{width:26px;height:26px;border-radius:8px;background:#edf1ff;color:var(--blue);font-size:12px;font-weight:800;display:grid;place-items:center;flex-shrink:0}
-    .meta{font-size:10px;font-weight:700;color:#8290a4;text-transform:uppercase;margin-bottom:4px}
-    .tool{margin:4px 0 12px 34px;padding:8px 10px;border-radius:8px;border:1px solid #dce6ff;background:#f5f8ff;color:#43577f;font-size:12px}
-    .tool pre{margin:4px 0 0;white-space:pre-wrap;font:11px/1.4 monospace}.error{color:#9c3434;background:#fff3f2;border-color:#f2d2cf}
-    .typing{display:inline-block;width:6px;height:13px;background:var(--blue);animation:blink 1s steps(2,start) infinite}@keyframes blink{to{visibility:hidden}}
-    .chips{display:flex;gap:6px;flex-wrap:wrap;padding:10px 0}.chips button{border:1px solid #dfe5ef;background:#fff;color:#45536a;padding:6px 10px;border-radius:16px;font-size:12px;cursor:pointer}
-    .composer{display:flex;align-items:flex-end;gap:8px;padding:10px;background:#fff;border:1px solid var(--line);border-radius:6px 6px 14px 14px}
-    textarea{resize:none;flex:1;max-height:110px;min-height:38px;border:0;outline:0;padding:8px;font:inherit;font-size:14px}
-    .send,.reset{height:38px;border:0;border-radius:10px;cursor:pointer;font-weight:700}.send{width:40px;background:var(--blue);color:#fff;font-size:16px}.send:disabled{opacity:.45}.reset{padding:0 10px;background:#f0f2f6;color:#637087;font-size:12px}
-    .hint,footer{color:#8b96a7;font-size:11px;padding-top:8px;display:flex;justify-content:space-between}footer{justify-content:center;padding-top:14px}
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alish · IT Helpdesk</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#17243a;font:15px/1.5 system-ui,sans-serif}
+.wrap{max-width:720px;margin:0 auto;height:100vh;padding:16px;display:flex;flex-direction:column;gap:10px}
+header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e6ebf2;padding-bottom:10px}
+.badge{font-size:12px;padding:4px 10px;border-radius:12px;background:#fff;border:1px solid #e6ebf2}
+#chat{flex:1;overflow:auto;background:#fff;border:1px solid #e6ebf2;border-radius:12px;padding:14px}
+.msg{margin-bottom:12px;padding:10px 12px;border-radius:10px;background:#f4f6fa;max-width:85%;white-space:pre-wrap}
+.user{margin-left:auto;background:#eaf0ff}.tool{font:12px monospace;background:#f5f8ff;border:1px solid #dce6ff;padding:8px;border-radius:8px;margin-bottom:10px}
+.err{background:#fff3f2;border-color:#f2d2cf;color:#9c3434}.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button,button{border:1px solid #dfe5ef;background:#fff;padding:6px 10px;border-radius:8px;cursor:pointer}
+form{display:flex;gap:8px}input{flex:1;padding:10px;border:1px solid #e6ebf2;border-radius:8px;font:inherit}
+.send{background:#345eea;color:#fff;border:0;font-weight:700}footer{font-size:11px;color:#8b96a7;text-align:center}
+</style>
 </head>
 <body>
-  <div class="shell">
-    <header>
-      <div class="logo">A</div>
-      <div><div class="brand">Alish Helpdesk</div><div class="sub">IT support · grounded in approved FAQs</div></div>
-      <div id="conn" class="conn connecting"><span class="dot"></span><span id="connTxt">Connecting…</span></div>
-    </header>
-    <main>
-      <div class="intro"><h1>What can I help with?</h1><p>Ask about VPN, account access, or approved software.</p></div>
-      <section id="chat" class="chat" aria-live="polite"><div id="welcome" class="welcome"><strong>Your IT helpdesk assistant</strong><span>Each connection keeps short conversation memory.</span></div></section>
-      <nav class="chips">
-        <button data-p="Can I share my password with the helpdesk?">Password policy</button>
-        <button data-p="My VPN keeps disconnecting. Please create a high-priority ticket.">Create mock ticket</button>
-        <button data-p="What was the issue in the ticket I just created?">Check previous turn</button>
-      </nav>
-      <form id="form" class="composer">
-        <textarea id="msg" maxlength="2000" rows="1" placeholder="Type your message…"></textarea>
-        <button id="reset" class="reset" type="button">New chat</button>
-        <button id="send" class="send" type="submit">↑</button>
-      </form>
-      <div class="hint"><span>Enter to send · Shift+Enter for newline</span><span id="cnt">0 / 2,000</span></div>
-    </main>
-    <footer>Demo only: tickets are in-memory mocks and are never sent to a real IT system.</footer>
+<div class="wrap">
+  <header><strong>Alish · IT Helpdesk</strong><span id="st" class="badge">Connecting…</span></header>
+  <div id="chat">Ask about VPN, passwords, or software.</div>
+  <div class="chips">
+    <button data-p="Can I share my password with the helpdesk?">Password policy</button>
+    <button data-p="My VPN keeps disconnecting. Please create a high-priority ticket.">Create mock ticket</button>
+    <button data-p="What was the issue in the ticket I just created?">Check memory</button>
   </div>
+  <form id="f"><input id="m" maxlength="2000" placeholder="Type your message…"><button type="button" id="rst">Reset</button><button class="send" id="sb">Send</button></form>
+  <footer>Demo only: tickets are in-memory mocks and never sent to a real IT system.</footer>
+</div>
 <script>
-(() => {
-  const $ = s => document.querySelector(s), chat = $('#chat'), welcome = $('#welcome'), input = $('#msg'), send = $('#send'), conn = $('#conn'), connTxt = $('#connTxt');
-  let ws, bubble = null, busy = false;
-  const setConn = (c, t) => { conn.className = `conn ${c}`; connTxt.textContent = t; };
-  const scroll = () => { chat.scrollTop = chat.scrollHeight; };
-  const updCnt = () => { $('#cnt').textContent = `${input.value.length.toLocaleString()} / 2,000`; };
-
-  function connect() {
-    const s = ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/chat`);
-    setConn('connecting', 'Connecting…');
-    s.onopen = () => ws === s && setConn('online', 'Connected');
-    s.onclose = () => ws === s && setConn('', 'Disconnected');
-    s.onerror = () => ws === s && setConn('', 'Error');
-    s.onmessage = e => {
-      if (ws !== s) return;
-      let d; try { d = JSON.parse(e.data); } catch { return; }
-      if (d.type === 'token') {
-        if (!bubble) bubble = addMsg('assistant', '');
-        bubble.querySelector('.text').textContent += d.content || '';
-        scroll();
-      } else if (d.type === 'tool_call') addTool(`Calling ${d.name}`, d.arguments || {});
-      else if (d.type === 'tool_result') addTool(`${d.name} result`, d.result || {});
-      else if (d.type === 'error') { addTool('Error', d.content || 'Failed.', true); busy = send.disabled = false; bubble = null; }
-      else if (d.type === 'done') { bubble?.querySelector('.typing')?.remove(); bubble = null; busy = send.disabled = false; input.focus(); }
-    };
-  }
-
-  function addMsg(role, text) {
-    welcome?.remove();
-    const row = Object.assign(document.createElement('div'), { className: `row ${role}` });
-    if (role === 'assistant') row.append(Object.assign(document.createElement('div'), { className: 'avatar', textContent: 'A' }));
-    const b = Object.assign(document.createElement('div'), { className: 'bubble' });
-    b.innerHTML = `<div class="meta">${role === 'user' ? 'You' : 'Alish'}</div><div class="text"></div>`;
-    b.querySelector('.text').textContent = text;
-    if (role === 'assistant') b.querySelector('.text').append(Object.assign(document.createElement('span'), { className: 'typing' }));
-    row.append(b); chat.append(row); scroll(); return b;
-  }
-
-  function addTool(title, detail, err = false) {
-    const box = Object.assign(document.createElement('div'), { className: `tool${err ? ' error' : ''}` });
-    box.innerHTML = `<strong>${title}</strong><pre></pre>`;
-    box.querySelector('pre').textContent = typeof detail === 'string' ? detail : JSON.stringify(detail, null, 2);
-    chat.append(box); scroll();
-  }
-
-  function submit(text) {
-    const v = text.trim();
-    if (!v || busy || ws?.readyState !== WebSocket.OPEN) return;
-    addMsg('user', v);
-    ws.send(JSON.stringify({ message: v }));
-    busy = send.disabled = true; input.value = ''; input.style.height = 'auto'; updCnt();
-  }
-
-  $('#form').onsubmit = e => { e.preventDefault(); submit(input.value); };
-  input.oninput = () => { input.style.height = 'auto'; input.style.height = `${Math.min(input.scrollHeight, 110)}px`; updCnt(); };
-  input.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#form').requestSubmit(); } };
-  document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => submit(b.dataset.p));
-  $('#reset').onclick = () => { ws?.close(); chat.innerHTML = ''; chat.append(welcome); bubble = null; busy = send.disabled = false; connect(); input.focus(); };
-  updCnt(); connect();
-})();
+const $=s=>document.querySelector(s),chat=$('#chat'),st=$('#st'),m=$('#m'),sb=$('#sb');
+let ws,cur=null,busy=false;
+function add(cls,txt){const d=document.createElement('div');d.className=cls;d.textContent=txt;chat.append(d);chat.scrollTop=chat.scrollHeight;return d;}
+function connect(){
+  ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws/chat`);
+  ws.onopen=()=>st.textContent='Connected';ws.onclose=()=>st.textContent='Disconnected';ws.onerror=()=>st.textContent='Error';
+  ws.onmessage=e=>{
+    const d=JSON.parse(e.data);
+    if(d.type==='token'){if(!cur)cur=add('msg','Alish: ');cur.textContent+=d.content||'';chat.scrollTop=chat.scrollHeight;}
+    else if(d.type==='tool_call')add('tool',`[Tool] ${d.name}(${JSON.stringify(d.arguments)})`);
+    else if(d.type==='tool_result')add('tool',`[Result] ${JSON.stringify(d.result)}`);
+    else if(d.type==='error'){add('tool err',d.content);busy=sb.disabled=false;cur=null;}
+    else if(d.type==='done'){cur=null;busy=sb.disabled=false;m.focus();}
+  };
+}
+function send(t){if(!t.trim()||busy||ws?.readyState!==1)return;add('msg user','You: '+t.trim());ws.send(JSON.stringify({message:t.trim()}));busy=sb.disabled=true;m.value='';}
+$('#f').onsubmit=e=>{e.preventDefault();send(m.value);};
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>send(b.dataset.p));
+$('#rst').onclick=()=>{ws?.close();chat.textContent='Ask about VPN, passwords, or software.';cur=null;busy=sb.disabled=false;connect();};
+connect();
 </script>
 </body>
 </html>
